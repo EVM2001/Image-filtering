@@ -1,0 +1,10 @@
+E:\projects_c\Diplom\Diplom\bin\Debug\Diplom.exe.config
+E:\projects_c\Diplom\Diplom\bin\Debug\Diplom.exe
+E:\projects_c\Diplom\Diplom\bin\Debug\Diplom.pdb
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.csprojAssemblyReference.cache
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.Form1.resources
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.Properties.Resources.resources
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.csproj.GenerateResource.cache
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.csproj.CoreCompileInputs.cache
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.exe
+E:\projects_c\Diplom\Diplom\obj\Debug\Diplom.pdb
