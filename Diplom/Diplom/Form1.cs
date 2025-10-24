@@ -9,162 +9,173 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Windows.Forms.DataVisualization.Charting;
 
 namespace Diplom
 {
     public partial class Form1 : Form
     {
+        
         public Form1()
         {
             InitializeComponent();
-            
-            GaussFilterCreation(GKernel);
+            comboBox1.SelectedIndex = 0;
         }
-        double[,] GKernel = new double[5, 5];
+        double[,] GKernel;
         string FilePath;
         string Filename;
         int width, height;//ширина и высота        
         Bitmap bitmap;//элемент класса для работы с пикселями
         Bitmap grayNoise;
+        Bitmap infocopy;
+        int MaskSize;
 
-        //double[,] mask = { { 0.1, 0.1, 0.1 }, { 0.1, 0.2, 0.1 }, { 0.1, 0.1, 0.1 } };//сглаживающий фильтр
-
-        //int[,] mask = { { 0, -1, 0 }, { -1, 5, -1 }, { 0, -1, 0 } };//контрастоповышающий фильтр
-        //int[,] mask = { { -1, -1, -1 }, { -1, 9, -1 }, { -1, -1, -1 } };//контрастоповышающий фильтр
-
-        int[,] mask = { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };//фильтр Лапласа
-        //int[,] mask = { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } };
-
-        //int[,] mask = { { -1, 0, 1 }, { -1, 0, 1 }, { -1, 0, 1 } };//Фильтр Превитта
-
+        double[,] mask = { { 0.1, 0.1, 0.1 }, { 0.1, 0.2, 0.1 }, { 0.1, 0.1, 0.1 } };//сглаживающий фильтр
+        double[,] ContrastMask = { { 0, -1, 0 }, { -1, 5, -1 }, { 0, -1, 0 } };//контрастоповышающий фильтр
+        double[,] LaplasMask = { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };//фильтр Лапласа
 
         //реализация кнопки "загрузить"
         private void GetAndShowFile(object sender, EventArgs e)
         {
+            openFileDialog1.FileName = "";
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
                 try
-                {
-                    //pictureBox1.Image = null;//убрать старое изображение ???
-
+                {                    
                     FilePath = openFileDialog1.FileName;//задание пути к файлу
                     Filename = openFileDialog1.SafeFileName;//задание имени файла
                     Image NewImage = Image.FromFile(FilePath);//создание объекта типа "изображение"
                     width = NewImage.Width;//получение ширины
                     height = NewImage.Height;//и высоты
 
-
                     bitmap = new Bitmap(NewImage);//заполнение элемента класса для работы с пикселями(оригинальное изображение)
+                    Bitmap gray = CreateGray(bitmap);//полутоновое изображение
+                    grayNoise = CreateNoise(gray);//зашумленное изображение
 
-                    //Bitmap gray = CreateGray(bitmap);
-                    //grayNoise = CreateNoise(CreateGray(bitmap));//перевод оригинального изображения в серый цвет и добавление шума
-                    grayNoise = CreateNoise(bitmap);
-
-                    pictureBox1.Image = grayNoise;//визуализация изображения
-                    pictureBox2.Image = bitmap;
-
-                    //pictureBox1.Image = bitmap;
-
+                    pictureBox2.Image = grayNoise;//визуализация изображений
+                    pictureBox1.Image = gray;
+                    
+                    infocopy = new Bitmap(grayNoise);//копия зашумленного изображения
                     txtFileName.Text = Filename;//вывод имени файла
                     txtImageSize.Text = width.ToString() + " X " + height.ToString();//вывод размера файла
-
-                    //textBox1.Text = mask[0,1].ToString();
-
-                    //GaussFormula(-2, -2);
-                    
-                    //button2.Enabled = true;//разрешение на использование фильтра
+                    CreateHystograme(bitmap, pictureBox4);//создание гистограмм
+                    CreateHystograme(grayNoise, pictureBox5);
                 }
                 catch
                 {
-                    MessageBox.Show("Выберите файл-изображение");
-                    //button2.Enabled = false;
+                    MessageBox.Show("Выберите файл-изображение");                    
                 }
             }
         }
-        private void Filter1(object sender, EventArgs e)
+
+        //нажатие на кнопку фильтр Лапласа
+        private void Laplasbutton_click(object sender, EventArgs e)
+        {
+            grayNoise = LaplasFilter(grayNoise);
+            pictureBox3.Image = grayNoise;
+            CreateHystograme(grayNoise, pictureBox6);
+        }
+
+        //функция, реализующая фильтр Лапласа
+        private Bitmap LaplasFilter(Bitmap Sourcebitmap)
         {
             Bitmap FilteredImage = new Bitmap(width, height);
+            double max = 0;
+            double min = 0;
+            double newmax = 255;
+            double newmin = 0;
+            int[][] Colors;
+            int NormalizedColor;
 
-            /*for (int w = 0; w < width; w++)
+            Colors = new int[height][];
+            for (int i = 0; i < height; i++)
             {
-                FilteredImage.SetPixel(w, 0, bitmap.GetPixel(w, 0));
-                FilteredImage.SetPixel(w, height - 1, bitmap.GetPixel(w, height - 1));
-            }            
-            for (int h = 0; h < height; h++)
-            {
-                FilteredImage.SetPixel(0, h, bitmap.GetPixel(0, h));
-                FilteredImage.SetPixel(width - 1, h, bitmap.GetPixel(width - 1, h));
-            }*/
-
-
+                Colors[i] = new int[width];
+            }
 
             for (int h = 1; h < height - 1; h++)
             {
                 for (int w = 1; w < width - 1; w++)
                 {
-                    int color = (int)ForFilter1(w, h);
-                    //FilteredImage.SetPixel(w, h, Color.FromArgb(ForFilter1(w, h)));
+                    int color = (int)ForFilter1(w, h, LaplasMask, 1, Sourcebitmap);
+                    if (color < min)
+                        min = color;
+                    if (color > max)
+                        max = color;
+
+                    Colors[h][w] = color;
+                }
+            }
+
+            for (int h = 1; h < height - 1; h++)
+            {
+                for (int w = 1; w < width - 1; w++)
+                {
+                    NormalizedColor = (int)(((Colors[h][w] - min) * ((newmax - newmin) / (max - min))) + newmin);//формула нормализации
+                    FilteredImage.SetPixel(w, h, Color.FromArgb(NormalizedColor, NormalizedColor, NormalizedColor));
+                }
+            }
+            return FilteredImage;
+        }
+
+        //нажатие на кнопку сглаживающий фильтр
+        private void Filter1button_Click(object sender, EventArgs e)
+        {
+            grayNoise = Filter1(grayNoise, 3);
+            pictureBox3.Image = grayNoise;
+            CreateHystograme(grayNoise, pictureBox6);
+        }
+
+        //функция, реализующая сглаживающий фильтр
+        private Bitmap Filter1(Bitmap Sourcebitmap, int MaskSize)
+        {
+            Bitmap FilteredImage = new Bitmap(width, height);
+            int offset = (MaskSize - 1) / 2;
+
+            for (int h = offset; h < height - offset; h++)
+            {
+                for (int w = offset; w < width - offset; w++)
+                {
+                    int color = (int)ForFilter1(w, h, mask, offset, Sourcebitmap);
                     FilteredImage.SetPixel(w, h, Color.FromArgb(color, color, color));
                 }
             }
-            grayNoise = FilteredImage;
-            //bitmap = FilteredImage;
-            pictureBox1.Image = FilteredImage;
+            return FilteredImage;
         }
-        private double ForFilter1(int w, int h)
+        
+        //функция для "подвижного окна"
+        private double ForFilter1(int w, int h, double[,] mask, int offset, Bitmap Sourcebitmap)
         {
             double newcolor = 0;
-            
 
-            for (int i = h - 1; i < h + 2; i++)
+            for (int i = h - offset; i <= h + offset; i++)
             {
-                for (int j = w - 1; j < w + 2; j++)
+                for (int j = w - offset; j <= w + offset; j++)
                 {
-                    //newcolor += mask[i - (h - 1), j - (w - 1)] * grayNoise.GetPixel(j, i).ToArgb();
-                    int test = grayNoise.GetPixel(j, i).R;
-                    double test2 = mask[i - (h - 1), j - (w - 1)];
-                    newcolor += mask[i - (h - 1), j - (w - 1)] * grayNoise.GetPixel(j, i).R;
+                    
+                    newcolor += mask[i - (h - offset), j - (w - offset)] * Sourcebitmap.GetPixel(j, i).R;
                 }
             }
-
-            /*newcolor = mask[0, 0] * bitmap.GetPixel(w - 1, h - 1).ToArgb() + mask[0, 1] * bitmap.GetPixel(w, h - 1).ToArgb() + mask[0, 2] * bitmap.GetPixel(w + 1, h - 1).ToArgb()
-                + mask[1, 0] * bitmap.GetPixel(w - 1, h).ToArgb() + mask[1, 1] * bitmap.GetPixel(w, h).ToArgb() + mask[1, 2] * bitmap.GetPixel(w + 1, h).ToArgb()
-                + mask[2, 0] * bitmap.GetPixel(w - 1, h + 1).ToArgb() + mask[2, 1] * bitmap.GetPixel(w, h + 1).ToArgb() + mask[2, 2] * bitmap.GetPixel(w + 1, h + 1).ToArgb();*/
-
-
             return newcolor;
         }
 
+        //нажатие на кнопку медианный фильтр
         private void Median(object sender, EventArgs e)
         {
-            grayNoise = MedianFilter(grayNoise, 3);
-            pictureBox1.Image = grayNoise;
+            grayNoise = MedianFilter(grayNoise, MaskSize);
+            pictureBox3.Image = grayNoise;
+            CreateHystograme(grayNoise, pictureBox6);
         }
 
-        private Bitmap MedianFilter(Bitmap sourceBitmap, int matrixSize, bool grayscale = false)
+        //функция, реализующая медианный фильтр
+        private Bitmap MedianFilter(Bitmap sourceBitmap, int matrixSize)
         {
             BitmapData sourceData = sourceBitmap.LockBits(new Rectangle(0, 0, sourceBitmap.Width, sourceBitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             byte[] pixelBuffer = new byte[sourceData.Stride * sourceData.Height];
             byte[] resultBuffer = new byte[sourceData.Stride * sourceData.Height];
             Marshal.Copy(sourceData.Scan0, pixelBuffer, 0, pixelBuffer.Length);
             sourceBitmap.UnlockBits(sourceData);
-
-            /*if (grayscale == true)
-            {
-                float rgb = 0;
-                for (int k = 0; k < pixelBuffer.Length; k += 4)
-                {
-                    rgb = pixelBuffer[k] * 0.11f;
-                    rgb += pixelBuffer[k + 1] * 0.59f;
-                    rgb += pixelBuffer[k + 2] * 0.3f;
-
-
-                    pixelBuffer[k] = (byte)rgb;
-                    pixelBuffer[k + 1] = pixelBuffer[k];
-                    pixelBuffer[k + 2] = pixelBuffer[k];
-                    pixelBuffer[k + 3] = 255;
-                }
-            }*/
+           
             int filterOffset = (matrixSize - 1) / 2;
             int calcOffset = 0;
             int byteOffset = 0;
@@ -201,9 +212,10 @@ namespace Diplom
             return resultBitmap;
         }
 
+        //функция перевода изображения в полутоновое
         private Bitmap CreateGray(Bitmap bitmap)
         {
-            // создаём Bitmap для черно-белого изображения
+            // создаём Bitmap для полутонового изображения
             Bitmap output = new Bitmap(bitmap.Width, bitmap.Height);
             // перебираем в циклах все пиксели исходного изображения
             for (int j = 0; j < bitmap.Height; j++)
@@ -222,11 +234,11 @@ namespace Diplom
                     // добавляем его в Bitmap нового изображения
                     output.SetPixel(i, j, Color.FromArgb((int)newPixel));
                 }
-            // выводим черно-белый Bitmap в pictureBox2
+            // выводим полутоновый Bitmap
             return output;
-
         }      
 
+        //функция зашумления изображения
         private Bitmap CreateNoise(Bitmap bitmap)
         {
             Random rnd = new Random();
@@ -237,104 +249,230 @@ namespace Diplom
                 for (int y = 0; y < output.Height; y++)
                 {
                     int q = rnd.Next(100);
-                    if (q <= 40) output.SetPixel(x, y, Color.White);
+                    if (q <= 5) output.SetPixel(x, y, Color.White);
                 }
             }
             return output;
         }
 
+        //функция сохранения результата фильтрации
         private void SaveImage(object sender, EventArgs e)
-        {
-            pictureBox1.Image.Save("E:\\мой ИНСТИТУТ\\4 курс\\диплом\\изображения\\TestNoiseImage2.jpg");
-        }
-
-        private void GaussFilter(object sender, EventArgs e)
-        {
-            Bitmap GaussFilteredImage = new Bitmap(width, height);
-
-            for (int h = 2; h < height - 2; h++)
+        {            
+            saveFileDialog1.Filter = "JPEG|*.jpg|PNG|*.png";
+            saveFileDialog1.FileName = "Безымянный";
+            if (saveFileDialog1.ShowDialog() == DialogResult.OK)
             {
-                for (int w = 2; w < width - 2; w++)
+                try
+                {  
+                    String FilePath = saveFileDialog1.FileName;//задание пути к файлу
+                    if (pictureBox3.Image != null)
+                    {
+                        pictureBox3.Image.Save(FilePath);
+                    }
+                    else MessageBox.Show("Ошибка");
+                }
+                catch
                 {
-                    int test = (int)ForGaussFilter(w, h);
-                    //Color test2 = Color.FromArgb((int)test, (int)test, (int)test);
-                    GaussFilteredImage.SetPixel(w, h, Color.FromArgb(test, test, test));                   
+                    MessageBox.Show("Ошибка");
                 }
             }
-            grayNoise = GaussFilteredImage;
-            //bitmap = GaussFilteredImage;
-            pictureBox1.Image = GaussFilteredImage;
         }
 
-        private double ForGaussFilter(int w, int h)
+        //нажатие на кнопку фильтр Гаусса
+        private void Gaussbutton_Click(object sender, EventArgs e)
+        {
+            grayNoise = GaussFilter(grayNoise,MaskSize);
+            pictureBox3.Image = grayNoise;
+            CreateHystograme(grayNoise, pictureBox6);
+        }
+
+        //функция, реализующая фильтр Гаусса
+        private Bitmap GaussFilter(Bitmap sourceBitmap,int MaskSize)
+        {
+            Bitmap GaussFilteredImage = new Bitmap(width, height);
+            GKernel = new double[MaskSize, MaskSize];
+            GaussFilterCreation(GKernel, MaskSize);
+            int offset = (MaskSize - 1) / 2;
+
+            for (int h = offset; h < height - offset; h++)
+            {
+                for (int w = offset; w < width - offset; w++)
+                {
+                    int test = (int)ForGaussFilter(w, h, offset, sourceBitmap);
+                    GaussFilteredImage.SetPixel(w, h, Color.FromArgb(test, test, test));
+                }
+            }
+            return GaussFilteredImage;
+        }
+
+        //функция для "подвижного окна" фильтра Гаусса
+        private double ForGaussFilter(int w, int h, int offset, Bitmap sourceBitmap)
         {
             double newcolor = 0;
 
-
-            /*for (int i = h - 3; i < h + 4; i++)
+            for (int i = h - offset; i <= h + offset; i++)
             {
-                for (int j = w - 3; j < w + 4; j++)
-                {
-                    newcolor += (int)(GaussFormula(j - (w - 3) - 3, i - (h - 3) - 3) * grayNoise.GetPixel(j, i).ToArgb());
-                }
-            }*/
-
-            for (int i = h - 2; i < h + 3; i++)
-            {
-                for (int j = w - 2; j < w + 3; j++)
-                {
-                    //newcolor += GaussFormula(j - (w - 2) - 2, i - (h - 2) - 2) * grayNoise.GetPixel(j, i).R;
-
-                    //Color test = grayNoise.GetPixel(j, i);
-                    //int test2 = grayNoise.GetPixel(j, i).ToArgb();
-                    //double pixcolor = 0.21 * grayNoise.GetPixel(j, i).R + 0.72 * grayNoise.GetPixel(j, i).G + 0.07 * grayNoise.GetPixel(j, i).B;
-
-
-                    //newcolor += GKernel[i - (h - 2), j - (w - 2)] * pixcolor;
-
-
-                    newcolor += GKernel[i - (h - 2), j - (w - 2)] * grayNoise.GetPixel(j, i).R;
+                for (int j = w - offset; j <= w + offset; j++)
+                {                    
+                    newcolor += GKernel[i - (h - offset), j - (w - offset)] * sourceBitmap.GetPixel(j, i).R;
                 }
             }
-
             return newcolor;
-        }
+        }     
 
-        private double GaussFormula(int x,int y)
-        {
-            double sig = 0.84089642;
-            //double sig = 1;
-            double formula = 1 / (2 * Math.PI * sig * sig) * Math.Exp(-(x * x + y * y) / (2 * sig * sig));
-            //textBox1.Text = formula.ToString();
-            return formula;
-        }
-
-        void GaussFilterCreation(double [,]GKernel)
-        {
-            // initialising standard deviation to 1.0
-            double sigma = 1.0;
+        //создание ядра свертки для фильтра Гаусса
+        void GaussFilterCreation(double [,]GKernel, int MaskSize)
+        {            
+            //double sigma = 1.0;
+            double sigma = 0.84089642;
             double r, s = 2.0 * sigma * sigma;
-
-            // sum is for normalization
+            int offset = (MaskSize - 1) / 2;           
             double sum = 0.0;
-
-            // generating 5x5 kernel
-            for (int x = -2; x <= 2; x++)
+            
+            for (int x = -offset; x <= offset; x++)
             {
-                for (int y = -2; y <= 2; y++)
+                for (int y = -offset; y <= offset; y++)
                 {
                     r = Math.Sqrt(x * x + y * y);
-                    GKernel[x + 2,y + 2] = (Math.Exp(-(r * r) / s)) / (Math.PI * s);
-                    sum += GKernel[x + 2,y + 2];
+                    GKernel[x + offset, y + offset] = (Math.Exp(-(r * r) / s)) / (Math.PI * s);
+                    sum += GKernel[x + offset, y + offset];
+                }
+            }
+            
+            for (int i = 0; i < MaskSize; ++i)
+                for (int j = 0; j < MaskSize; ++j)
+                    GKernel[i,j] /= sum;
+        }  
+
+        //функция для создания гистограмм
+        void CreateHystograme(Bitmap bitmap, PictureBox picbox)
+        {
+            int max = 0;
+            Bitmap mybitmap = new Bitmap(picbox.Width, picbox.Height);
+            Chart Graphic = new Chart();
+            Graphic.Width = picbox.Width;
+            Graphic.Height = picbox.Height;
+
+            Graphic.ChartAreas.Add(new ChartArea("Hystograme"));
+            Graphic.ChartAreas[0].AxisX.Title = "Яркость пиксела";
+            Graphic.ChartAreas[0].AxisY.Title = "Число пикселей";
+
+            Graphic.ChartAreas[0].AxisX.Minimum = 0;
+            Graphic.ChartAreas[0].AxisX.Maximum = 256;
+            Graphic.ChartAreas[0].AxisX.Interval = 32;
+
+            Series Hystograme = Graphic.Series.Add("Hystograme");
+            Hystograme.ChartType = SeriesChartType.Column;
+
+            int[] Lights = new int[256];
+            int i, j;
+            Color color;
+            for (i = 0; i < bitmap.Width; i++)//проходим по всему изображению 
+            {
+                for (j = 0; j < bitmap.Height; j++)
+                {
+                    color = bitmap.GetPixel(i, j);
+                    Lights[color.R]++;//заполняем массив, каждый элемент которого это количество пикселей с яркостью равной индексу массива
                 }
             }
 
-            // normalising the Kernel
-            for (int i = 0; i < 5; ++i)
-                for (int j = 0; j < 5; ++j)
-                    GKernel[i,j] /= sum;
+            for (i = 0; i < 255; i++)//прорисовка гистограммы
+            {
+                
+                if (Lights[i] > max)
+                    max = Lights[i];
+            }
+            Graphic.ChartAreas[0].AxisY.Maximum = max;
+            for (i = 0; i < 256; i++)//прорисовка гистограммы
+            {
+                if (Lights[i] != 0) 
+                    for (j = 0; j <= Lights[i]; j += Lights[i])// отрисовываем столбец за столбцом нашу гистограмму 
+                    {
+                        Hystograme.Points.AddXY(i, j);
+                    }
+            }
+            Graphic.DrawToBitmap(mybitmap, new Rectangle(0,0, picbox.Width, picbox.Height));
+            picbox.Image = mybitmap;
         }
 
+        //выпадающее меню с выбором размеров маски фильтра
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            switch (comboBox1.SelectedIndex)
+            {
+                case 0:
+                    MaskSize = 3;
+                    break;
+                case 1:
+                    MaskSize = 5;
+                    break;
+                case 2:
+                    MaskSize = 7;
+                    break;
+            }
+        }
+
+        //нажатие на кнопку контрастоповышающего фильтра
+        private void Contrastbutton_click(object sender, EventArgs e)
+        {
+            grayNoise = ContrastFilter(grayNoise);
+            pictureBox3.Image = grayNoise;
+            CreateHystograme(grayNoise, pictureBox6);
+        }
+
+        //функция, реализующая контрастоповышающий фильтр
+        private Bitmap ContrastFilter(Bitmap Sourcebitmap)
+        {
+            Bitmap FilteredImage = new Bitmap(width, height);
+            double max = 0;
+            double min = 1000;
+            double newmax = 255;
+            double k;
+            int[][] Colors;
+            int NormalizedColor;
+
+            Colors = new int[height][];
+            for (int i = 0; i < height; i++)
+            {
+                Colors[i] = new int[width];
+            }
+
+            for (int h = 1; h < height - 1; h++)
+            {
+                for (int w = 1; w < width - 1; w++)
+                {
+                    int color = (int)ForFilter1(w, h, ContrastMask, 1, Sourcebitmap);
+                    if (color < min)
+                        min = color;
+                    if (color > max)
+                        max = color;
+
+                    Colors[h][w] = color;
+                }
+            }
+            k = newmax / (max - min);
+            for (int h = 1; h < height - 1; h++)
+            {
+                for (int w = 1; w < width - 1; w++)
+                {
+                    NormalizedColor = (int)((Colors[h][w] - min) * k);//формула нормализации
+                    FilteredImage.SetPixel(w, h, Color.FromArgb(NormalizedColor, NormalizedColor, NormalizedColor));
+                }
+            }
+            return FilteredImage;
+        }
+
+        //нажатие на кнопку информативность
+        private void button7_Click(object sender, EventArgs e)
+        {
+            Bitmap smooth = Filter1(infocopy, 3);
+            Bitmap median = MedianFilter(infocopy, MaskSize);
+            Bitmap gauss = GaussFilter(infocopy, MaskSize);
+            Bitmap laplas = LaplasFilter(infocopy);
+            Bitmap contrast = ContrastFilter(infocopy);
+            Form2 f = new Form2(pictureBox1.Image, pictureBox2.Image, pictureBox3.Image, smooth, median, gauss, laplas, contrast);
+            f.Show();
+        }
 
     }
 }
